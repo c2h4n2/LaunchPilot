@@ -1,484 +1,433 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+
+type FounderProfile = {
+  goal?: string;
+  skills?: string;
+  interest?: string;
+  budget?: string;
+  time?: string;
+  experience?: string;
+  model?: string;
+  income?: string;
+  [key: string]: unknown;
+};
 
 type Opportunity = {
   id: string;
   name: string;
+  description?: string;
+  score?: number;
+  cost?: string;
+  launchTime?: string;
+  model?: string;
+  difficulty?: string;
+  targetCustomer?: string;
+  firstOffer?: string;
+  reasons?: string[];
+  [key: string]: unknown;
+};
+
+type PlanTask = {
+  id: string;
+  title: string;
   description: string;
-  cost: string;
-  launchTime: string;
-  model: string;
-  difficulty: string;
-  score: number;
 };
 
-type Profile = Record<string, string>;
-
-const planTemplates: Record<
-  string,
-  {
-    concept: string;
-    customer: string;
-    offer: string;
-    revenue: string;
-    tasks: string[][];
-  }
-> = {
-  affiliate: {
-    concept:
-      "Build a focused buying-guide website around a niche where people actively research products before purchasing.",
-    customer:
-      "People already searching for comparisons, reviews, best-of lists, and product recommendations.",
-    offer:
-      "Useful product research that helps buyers choose the right product faster.",
-    revenue:
-      "Affiliate commissions from qualified purchase-intent traffic.",
-    tasks: [
-      [
-        "Choose one high-intent niche",
-        "Identify 20 buyer-focused search topics",
-        "Research competing websites",
-      ],
-      [
-        "Create the website structure",
-        "Publish the first 5 buying guides",
-        "Add clear affiliate CTAs",
-      ],
-      [
-        "Publish comparison content",
-        "Strengthen internal linking",
-        "Apply to relevant affiliate programs",
-      ],
-      [
-        "Review traffic and clicks",
-        "Improve highest-potential pages",
-        "Plan the next 20 articles",
-      ],
-    ],
-  },
-
-  "ai-service": {
-    concept:
-      "Offer one clearly defined AI-powered service that saves businesses time or improves a repetitive workflow.",
-    customer:
-      "Small businesses with repetitive administrative, marketing, support, or content tasks.",
-    offer:
-      "A fixed-scope AI implementation or automation package with a measurable business outcome.",
-    revenue:
-      "Upfront implementation fees plus optional monthly support or optimization retainers.",
-    tasks: [
-      [
-        "Choose one customer niche",
-        "Identify one expensive repetitive problem",
-        "Define a simple AI-powered solution",
-      ],
-      [
-        "Create your service offer",
-        "Build a demonstration",
-        "Create a simple landing page",
-      ],
-      [
-        "Build a list of 50 prospects",
-        "Begin personalized outreach",
-        "Run discovery conversations",
-      ],
-      [
-        "Close the first client",
-        "Document delivery",
-        "Turn the process into a repeatable service",
-      ],
-    ],
-  },
-
-  "digital-products": {
-    concept:
-      "Create a useful digital asset that solves one narrow problem and can be sold repeatedly without custom delivery.",
-    customer:
-      "A specific audience with a recurring problem that can be solved using templates, guides, systems, or resources.",
-    offer:
-      "A focused digital toolkit designed to produce a clear outcome quickly.",
-    revenue:
-      "One-time digital product sales with opportunities for bundles and premium versions.",
-    tasks: [
-      [
-        "Choose one audience",
-        "Identify a painful recurring problem",
-        "Validate demand through existing communities",
-      ],
-      [
-        "Design the minimum viable product",
-        "Create the core files",
-        "Set initial pricing",
-      ],
-      [
-        "Create the sales page",
-        "Prepare launch content",
-        "Recruit initial testers",
-      ],
-      [
-        "Launch publicly",
-        "Collect customer feedback",
-        "Improve the product and offer",
-      ],
-    ],
-  },
-
-  "micro-saas": {
-    concept:
-      "Build a small software product that solves one narrow recurring problem exceptionally well.",
-    customer:
-      "A defined professional or business niche currently solving the problem manually or with complicated software.",
-    offer:
-      "A focused application that saves users time, reduces repetitive work, or improves a measurable workflow.",
-    revenue:
-      "Monthly or annual software subscriptions.",
-    tasks: [
-      [
-        "Choose one customer niche",
-        "Identify a recurring workflow problem",
-        "Interview potential users",
-      ],
-      [
-        "Define the smallest useful MVP",
-        "Design the core workflow",
-        "Build the first prototype",
-      ],
-      [
-        "Test with early users",
-        "Fix the biggest friction points",
-        "Add payments and onboarding",
-      ],
-      [
-        "Launch the MVP",
-        "Contact potential customers",
-        "Measure activation and retention",
-      ],
-    ],
-  },
-
-  "content-business": {
-    concept:
-      "Build a trusted content brand around one specialized topic and develop multiple ways to monetize the audience.",
-    customer:
-      "People repeatedly looking for useful information, recommendations, education, or analysis within one niche.",
-    offer:
-      "Consistently useful specialized content that becomes a trusted resource for the audience.",
-    revenue:
-      "Affiliate revenue, sponsorships, digital products, memberships, or advertising.",
-    tasks: [
-      [
-        "Choose a focused content niche",
-        "Define the target audience",
-        "Create 30 content ideas",
-      ],
-      [
-        "Set up the publishing platform",
-        "Create your first cornerstone content",
-        "Establish a publishing schedule",
-      ],
-      [
-        "Publish consistently",
-        "Begin audience distribution",
-        "Start collecting email subscribers",
-      ],
-      [
-        "Analyze engagement",
-        "Identify monetization opportunities",
-        "Double down on winning topics",
-      ],
-    ],
-  },
-
-  "local-service": {
-    concept:
-      "Turn one valuable skill into a standardized service with a clear deliverable, price, and target customer.",
-    customer:
-      "Businesses or consumers who already pay to solve the problem and value speed, reliability, or expertise.",
-    offer:
-      "A simple productized service with a defined scope and outcome rather than open-ended hourly work.",
-    revenue:
-      "Fixed project fees with an option to introduce recurring service packages.",
-    tasks: [
-      [
-        "Choose one customer type",
-        "Identify one valuable problem",
-        "Define your service outcome",
-      ],
-      [
-        "Package the service",
-        "Choose pricing",
-        "Create a simple sales page",
-      ],
-      [
-        "Build a prospect list",
-        "Start direct outreach",
-        "Book initial conversations",
-      ],
-      [
-        "Deliver the first project",
-        "Collect proof and feedback",
-        "Standardize the delivery process",
-      ],
-    ],
-  },
+type PlanWeek = {
+  week: number;
+  title: string;
+  objective: string;
+  tasks: PlanTask[];
 };
 
-export default function LaunchPlanPage() {
+type LaunchPlan = {
+  businessName: string;
+  concept: string;
+  targetCustomer: string;
+  firstOffer: string;
+  revenueModel: string;
+  thirtyDayGoal: string;
+  weeks: PlanWeek[];
+};
+
+const PROFILE_KEY = "launchpilot-founder-profile";
+const OPPORTUNITY_KEY = "launchpilot-selected-opportunity";
+const PLAN_CACHE_KEY = "launchpilot-ai-launch-plan";
+const COMPLETED_KEY = "launchpilot-completed-tasks";
+
+export default function PlanPage() {
   const router = useRouter();
+  const params = useParams<{ id: string }>();
+  const opportunityId = params?.id;
+
+  const [profile, setProfile] = useState<FounderProfile | null>(null);
   const [opportunity, setOpportunity] = useState<Opportunity | null>(null);
-  const [profile, setProfile] = useState<Profile>({});
-  const [completed, setCompleted] = useState<Record<string, boolean>>({});
+  const [plan, setPlan] = useState<LaunchPlan | null>(null);
+  const [completed, setCompleted] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [regenerating, setRegenerating] = useState(false);
 
   useEffect(() => {
-    const selected = localStorage.getItem("launchpilot-selected-opportunity");
-    const savedProfile = localStorage.getItem("launchpilot-founder-profile");
-    const savedTasks = localStorage.getItem("launchpilot-completed-tasks");
+    const rawProfile = localStorage.getItem(PROFILE_KEY);
+    const rawOpportunity = localStorage.getItem(OPPORTUNITY_KEY);
+    const rawCompleted = localStorage.getItem(COMPLETED_KEY);
 
-    if (!selected) {
+    if (!rawProfile || !rawOpportunity) {
       router.replace("/opportunities");
       return;
     }
 
     try {
-      setOpportunity(JSON.parse(selected));
+      const parsedProfile = JSON.parse(rawProfile) as FounderProfile;
+      const parsedOpportunity = JSON.parse(rawOpportunity) as Opportunity;
 
-      if (savedProfile) {
-        setProfile(JSON.parse(savedProfile));
+      setProfile(parsedProfile);
+      setOpportunity(parsedOpportunity);
+
+      if (rawCompleted) {
+        setCompleted(JSON.parse(rawCompleted));
       }
 
-      if (savedTasks) {
-        setCompleted(JSON.parse(savedTasks));
+      const rawPlan = localStorage.getItem(PLAN_CACHE_KEY);
+
+      if (rawPlan) {
+        const cached = JSON.parse(rawPlan) as {
+          opportunityId?: string;
+          plan?: LaunchPlan;
+        };
+
+        if (
+          cached?.opportunityId === parsedOpportunity.id &&
+          cached?.plan
+        ) {
+          setPlan(cached.plan);
+          setLoading(false);
+          return;
+        }
       }
+
+      void generatePlan(parsedProfile, parsedOpportunity);
     } catch {
-      router.replace("/opportunities");
+      setError("We couldn't load your saved founder profile and opportunity.");
+      setLoading(false);
     }
   }, [router]);
 
-  function toggleTask(key: string) {
-    const next = {
-      ...completed,
-      [key]: !completed[key],
-    };
+  async function generatePlan(
+    founderProfile: FounderProfile,
+    selectedOpportunity: Opportunity,
+    force = false
+  ) {
+    if (force) setRegenerating(true);
+    else setLoading(true);
 
-    setCompleted(next);
-    localStorage.setItem(
-      "launchpilot-completed-tasks",
-      JSON.stringify(next)
-    );
+    setError("");
+
+    try {
+      const response = await fetch("/api/plan", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          profile: founderProfile,
+          opportunity: selectedOpportunity,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data?.plan) {
+        throw new Error(data?.error || "Unable to generate your launch plan.");
+      }
+
+      const nextPlan = data.plan as LaunchPlan;
+      setPlan(nextPlan);
+
+      localStorage.setItem(
+        PLAN_CACHE_KEY,
+        JSON.stringify({
+          opportunityId: selectedOpportunity.id,
+          plan: nextPlan,
+        })
+      );
+
+      if (force) {
+        setCompleted([]);
+        localStorage.removeItem(COMPLETED_KEY);
+      }
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to generate your launch plan right now."
+      );
+    } finally {
+      setLoading(false);
+      setRegenerating(false);
+    }
   }
 
-  if (!opportunity) {
+  function toggleTask(taskId: string) {
+    setCompleted((current) => {
+      const next = current.includes(taskId)
+        ? current.filter((id) => id !== taskId)
+        : [...current, taskId];
+
+      localStorage.setItem(COMPLETED_KEY, JSON.stringify(next));
+      return next;
+    });
+  }
+
+  const allTasks = useMemo(
+    () => plan?.weeks.flatMap((week) => week.tasks) ?? [],
+    [plan]
+  );
+
+  const completedCount = allTasks.filter((task) =>
+    completed.includes(task.id)
+  ).length;
+
+  const progress =
+    allTasks.length === 0
+      ? 0
+      : Math.round((completedCount / allTasks.length) * 100);
+
+  if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#07111f] text-white">
-        <p className="text-slate-400">Building your launch plan...</p>
+      <main className="min-h-screen bg-[#07111f] text-white">
+        <Header />
+        <div className="mx-auto flex min-h-[70vh] max-w-5xl items-center justify-center px-6">
+          <div className="text-center">
+            <div className="mx-auto mb-6 h-10 w-10 animate-spin rounded-full border-2 border-slate-700 border-t-cyan-400" />
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-400">
+              Launch Plan Engine
+            </p>
+            <h1 className="mt-3 text-3xl font-bold">
+              Building your personalized 30-day plan...
+            </h1>
+            <p className="mx-auto mt-3 max-w-xl text-slate-400">
+              LaunchPilot is turning your founder profile and chosen business into
+              concrete weekly actions.
+            </p>
+          </div>
+        </div>
       </main>
     );
   }
 
-  const plan = planTemplates[opportunity.id] ?? planTemplates["local-service"];
+  if (error && !plan) {
+    return (
+      <main className="min-h-screen bg-[#07111f] text-white">
+        <Header />
+        <div className="mx-auto max-w-3xl px-6 py-24 text-center">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-rose-400">
+            Plan generation failed
+          </p>
+          <h1 className="mt-3 text-3xl font-bold">
+            We couldn't build your launch plan.
+          </h1>
+          <p className="mt-4 text-slate-400">{error}</p>
+          <button
+            onClick={() => {
+              if (profile && opportunity) {
+                void generatePlan(profile, opportunity);
+              }
+            }}
+            className="mt-8 rounded-xl bg-cyan-400 px-5 py-3 font-semibold text-slate-950 transition hover:bg-cyan-300"
+          >
+            Try again
+          </button>
+        </div>
+      </main>
+    );
+  }
 
-  const totalTasks = plan.tasks.flat().length;
-  const completedTasks = Object.values(completed).filter(Boolean).length;
-  const progress = Math.min(
-    100,
-    Math.round((completedTasks / totalTasks) * 100)
-  );
+  if (!plan || !opportunity) return null;
 
   return (
     <main className="min-h-screen bg-[#07111f] text-white">
-      <nav className="border-b border-slate-800">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
-          <button
-            onClick={() => router.push("/")}
-            className="flex items-center gap-3"
-          >
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500 font-bold">
-              L
-            </div>
-            <span className="font-semibold">LaunchPilot</span>
-          </button>
+      <Header />
 
+      <section className="border-b border-white/10">
+        <div className="mx-auto max-w-7xl px-6 py-12 lg:px-8">
           <button
             onClick={() => router.push("/opportunities")}
-            className="text-sm text-slate-400 transition hover:text-white"
+            className="mb-8 text-sm font-medium text-slate-400 transition hover:text-white"
           >
-            ← Opportunities
+            ← Back to opportunities
           </button>
-        </div>
-      </nav>
 
-      <section className="mx-auto max-w-7xl px-6 py-12">
-        <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-blue-400">
-              Your Launch Plan
-            </p>
-
-            <h1 className="mt-4 text-4xl font-bold tracking-tight sm:text-5xl">
-              {opportunity.name}
-            </h1>
-
-            <p className="mt-5 max-w-3xl text-lg leading-8 text-slate-400">
-              {plan.concept}
-            </p>
-
-            <div className="mt-10 grid gap-4 md:grid-cols-3">
-              <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
-                <p className="text-xs uppercase tracking-wider text-slate-500">
-                  Target customer
-                </p>
-                <p className="mt-3 leading-6 text-slate-200">
-                  {plan.customer}
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
-                <p className="text-xs uppercase tracking-wider text-slate-500">
-                  First offer
-                </p>
-                <p className="mt-3 leading-6 text-slate-200">
-                  {plan.offer}
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
-                <p className="text-xs uppercase tracking-wider text-slate-500">
-                  Revenue model
-                </p>
-                <p className="mt-3 leading-6 text-slate-200">
-                  {plan.revenue}
-                </p>
-              </div>
+          <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-400">
+                Your 30-day launch plan
+              </p>
+              <h1 className="mt-3 max-w-4xl text-4xl font-bold tracking-tight md:text-5xl">
+                {plan.businessName}
+              </h1>
+              <p className="mt-5 max-w-3xl text-lg leading-8 text-slate-300">
+                {plan.concept}
+              </p>
             </div>
 
-            <div className="mt-12">
-              <div className="flex items-end justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-blue-400">
-                    30-DAY ROADMAP
-                  </p>
-                  <h2 className="mt-2 text-3xl font-bold">
-                    Your path to launch
-                  </h2>
-                </div>
-
-                <p className="text-sm text-slate-500">
-                  {completedTasks}/{totalTasks} tasks
-                </p>
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-6">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-slate-400">
+                  Plan progress
+                </span>
+                <span className="font-bold text-cyan-400">{progress}%</span>
               </div>
-
-              <div className="mt-8 space-y-6">
-                {plan.tasks.map((week, weekIndex) => (
-                  <div
-                    key={weekIndex}
-                    className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6"
-                  >
-                    <div className="mb-5 flex items-center gap-4">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/10 font-semibold text-blue-400">
-                        {weekIndex + 1}
-                      </div>
-
-                      <div>
-                        <p className="font-semibold">
-                          Week {weekIndex + 1}
-                        </p>
-                        <p className="text-sm text-slate-500">
-                          {weekIndex === 0 && "Validate the opportunity"}
-                          {weekIndex === 1 && "Build the foundation"}
-                          {weekIndex === 2 && "Reach the market"}
-                          {weekIndex === 3 && "Launch and improve"}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="space-y-3">
-                      {week.map((task, taskIndex) => {
-                        const key = `${opportunity.id}-${weekIndex}-${taskIndex}`;
-                        const isDone = Boolean(completed[key]);
-
-                        return (
-                          <button
-                            key={key}
-                            onClick={() => toggleTask(key)}
-                            className={`flex w-full items-center gap-4 rounded-xl border p-4 text-left transition ${
-                              isDone
-                                ? "border-emerald-500/30 bg-emerald-500/5 text-slate-500"
-                                : "border-slate-800 bg-[#091422] hover:border-slate-600"
-                            }`}
-                          >
-                            <span
-                              className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md border text-xs ${
-                                isDone
-                                  ? "border-emerald-500 bg-emerald-500 text-white"
-                                  : "border-slate-600"
-                              }`}
-                            >
-                              {isDone ? "✓" : ""}
-                            </span>
-
-                            <span className={isDone ? "line-through" : ""}>
-                              {task}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <aside>
-            <div className="sticky top-8 rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
-              <p className="text-sm font-semibold">Launch progress</p>
-
-              <div className="mt-5 flex items-end gap-2">
-                <span className="text-4xl font-bold">{progress}%</span>
-                <span className="pb-1 text-sm text-slate-500">complete</span>
-              </div>
-
-              <div className="mt-5 h-2 overflow-hidden rounded-full bg-slate-800">
+              <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-800">
                 <div
-                  className="h-full rounded-full bg-blue-500 transition-all"
+                  className="h-full rounded-full bg-cyan-400 transition-all"
                   style={{ width: `${progress}%` }}
                 />
               </div>
-
-              <div className="mt-7 space-y-4 border-t border-slate-800 pt-6 text-sm">
-                <div className="flex justify-between gap-4">
-                  <span className="text-slate-500">Match</span>
-                  <span>{opportunity.score}%</span>
-                </div>
-
-                <div className="flex justify-between gap-4">
-                  <span className="text-slate-500">Startup cost</span>
-                  <span>{opportunity.cost}</span>
-                </div>
-
-                <div className="flex justify-between gap-4">
-                  <span className="text-slate-500">Time to launch</span>
-                  <span>{opportunity.launchTime}</span>
-                </div>
-
-                <div className="flex justify-between gap-4">
-                  <span className="text-slate-500">Weekly time</span>
-                  <span>{profile.time ?? "Not set"}</span>
-                </div>
-              </div>
+              <p className="mt-3 text-sm text-slate-400">
+                {completedCount} of {allTasks.length} tasks complete
+              </p>
 
               <button
-                onClick={() => router.push("/opportunities")}
-                className="mt-7 w-full rounded-xl border border-slate-700 px-4 py-3 text-sm font-semibold transition hover:border-slate-500"
+                disabled={regenerating}
+                onClick={() => {
+                  if (profile && opportunity) {
+                    void generatePlan(profile, opportunity, true);
+                  }
+                }}
+                className="mt-6 w-full rounded-xl border border-white/10 px-4 py-3 text-sm font-semibold transition hover:border-cyan-400/40 hover:bg-white/[0.04] disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Explore another idea
+                {regenerating ? "Generating..." : "Regenerate plan"}
               </button>
             </div>
-          </aside>
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-6 py-10 lg:px-8">
+        {error && (
+          <div className="mb-8 rounded-xl border border-amber-400/20 bg-amber-400/10 p-4 text-sm text-amber-100">
+            {error}
+          </div>
+        )}
+
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <SummaryCard title="Target customer" body={plan.targetCustomer} />
+          <SummaryCard title="First offer" body={plan.firstOffer} />
+          <SummaryCard title="Revenue model" body={plan.revenueModel} />
+          <SummaryCard title="30-day goal" body={plan.thirtyDayGoal} />
+        </div>
+
+        <div className="mt-12">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-400">
+              Roadmap
+            </p>
+            <h2 className="mt-2 text-3xl font-bold">
+              Your first four weeks
+            </h2>
+          </div>
+
+          <div className="mt-8 space-y-6">
+            {plan.weeks.map((week) => (
+              <article
+                key={week.week}
+                className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]"
+              >
+                <div className="border-b border-white/10 p-6 md:flex md:items-start md:justify-between md:gap-8">
+                  <div>
+                    <p className="text-sm font-semibold text-cyan-400">
+                      WEEK {week.week}
+                    </p>
+                    <h3 className="mt-1 text-2xl font-bold">{week.title}</h3>
+                  </div>
+                  <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400 md:mt-0">
+                    {week.objective}
+                  </p>
+                </div>
+
+                <div className="divide-y divide-white/10">
+                  {week.tasks.map((task) => {
+                    const isDone = completed.includes(task.id);
+
+                    return (
+                      <button
+                        key={task.id}
+                        onClick={() => toggleTask(task.id)}
+                        className="flex w-full gap-4 p-6 text-left transition hover:bg-white/[0.03]"
+                      >
+                        <span
+                          className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md border text-sm ${
+                            isDone
+                              ? "border-cyan-400 bg-cyan-400 text-slate-950"
+                              : "border-slate-600 text-transparent"
+                          }`}
+                        >
+                          ✓
+                        </span>
+                        <span>
+                          <span
+                            className={`block font-semibold ${
+                              isDone
+                                ? "text-slate-500 line-through"
+                                : "text-white"
+                            }`}
+                          >
+                            {task.title}
+                          </span>
+                          <span
+                            className={`mt-1 block text-sm leading-6 ${
+                              isDone ? "text-slate-600" : "text-slate-400"
+                            }`}
+                          >
+                            {task.description}
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </article>
+            ))}
+          </div>
+
+          <p className="mt-8 text-center text-xs leading-5 text-slate-500">
+            LaunchPilot plans are planning guidance, not guarantees of revenue,
+            demand, or business results. Validate assumptions with real customers
+            and current platform or affiliate-program terms.
+          </p>
         </div>
       </section>
     </main>
+  );
+}
+
+function SummaryCard({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+        {title}
+      </p>
+      <p className="mt-3 text-sm leading-6 text-slate-200">{body}</p>
+    </div>
+  );
+}
+
+function Header() {
+  return (
+    <header className="border-b border-white/10 bg-[#07111f]/95">
+      <div className="mx-auto flex h-16 max-w-7xl items-center px-6 lg:px-8">
+        <a href="/" className="flex items-center gap-3 font-bold">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-cyan-400 text-slate-950">
+            L
+          </span>
+          <span>LaunchPilot</span>
+        </a>
+      </div>
+    </header>
   );
 }
